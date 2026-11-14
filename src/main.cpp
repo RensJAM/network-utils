@@ -49,14 +49,11 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        int ret = EXIT_SUCCESS;
-        std::cout << "Pinging " << (resolved.empty() ? address : resolved + " [" + address + "]")
-                << " with " << packet_size << " bytes of data:" << std::endl;
+        std::cout << "Pinging " << (resolved.empty() ? address : resolved + " [" + address + "]") << " with " << packet_size << " bytes of data:" << std::endl;
         auto result = icmplib::Ping(address, ICMPLIB_TIMEOUT_1S, 1, 255, packet_size);
         switch (result.response) {
         case icmplib::PingResponseType::Failure:
             std::cerr << "Network error." << std::endl;
-            ret = EXIT_FAILURE;
             break;
         case icmplib::PingResponseType::Timeout:
             std::cout << "Request timed out." << std::endl;
