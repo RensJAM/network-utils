@@ -89,6 +89,7 @@ int main(int argc, char* argv[])
 
     int MAX = 255;
     int y = 0;
+    int e;
 
     std::vector<std::thread> threads;
     std::mutex ips_mutex;
@@ -128,6 +129,7 @@ int main(int argc, char* argv[])
             freeaddrinfo(res);
         }
     }
+    std::cin >> e;
     return 0;
     
 }
