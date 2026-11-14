@@ -1,83 +1,11 @@
 #include <iostream>
-#include <string>
 #include <thread>
-#include <chrono>
 #include <vector>
 #include <mutex>
-#include <cstdlib>
 
 #include "icmplib.h"
 
-int pingAll(std::string* pWorking_ips, int i, int& y, std::string range, std::mutex& ips_mutex, int argc, char *argv[]) {
-    std::string id = std::to_string(i);
-
-    std::string address = range + id, resolved;
-    uint16_t packet_size = ICMPLIB_PING_DATA_SIZE;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-l" && i + 1 < argc) {
-            try {
-            int size = std::stoi(argv[++i]);
-            if (size < 0 || size > ICMPLIB_MAX_PING_DATA_SIZE) {
-                std::cerr << "Packet size must be between 0 and " << ICMPLIB_MAX_PING_DATA_SIZE << "." << std::endl;
-                return EXIT_FAILURE;
-            }
-            packet_size = static_cast<uint16_t>(size);
-            } catch (...) {
-                std::cerr << "Invalid packet size value." << std::endl;
-                return EXIT_FAILURE;
-            }
-        } else {
-            address = arg;
-        }
-    }
-
-    try {
-        if (!icmplib::IPAddress::IsCorrect(address, icmplib::IPAddress::Type::Unknown)) {
-            resolved = address; address = icmplib::IPAddress(address);
-        }
-    } catch (...) {
-        std::cerr << "Ping request could not find host " << address << ". Please check the name and try again." << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    std::cout << "Pinging " << (resolved.empty() ? address : resolved + " [" + address + "]") << " with " << packet_size << " bytes of data:" << std::endl;
-    auto result = icmplib::Ping(address, ICMPLIB_TIMEOUT_1S, 1, 255, packet_size);
-    switch (result.response) {
-    case icmplib::PingResponseType::Failure:
-        std::cerr << "Network error." << std::endl;
-        break;
-    case icmplib::PingResponseType::Timeout:
-        std::cout << "Request timed out." << std::endl;
-        break;
-    default:
-        std::cout << "Reply from " << static_cast<std::string>(result.address) << ": ";
-        switch (result.response) {
-        case icmplib::PingResponseType::Success:
-            std::cout << "time=" << result.delay;
-            if (result.address.GetType() != icmplib::IPAddress::Type::IPv6) {
-                std::cout << " TTL=" << static_cast<unsigned>(result.ttl);
-            }
-            {
-                std::lock_guard<std::mutex> lock(ips_mutex);
-                pWorking_ips[y] = address;
-                y++;
-            }
-            break;
-        case icmplib::PingResponseType::Unreachable:
-            std::cout << "Destination unreachable.";
-            break;
-        case icmplib::PingResponseType::TimeExceeded:
-            std::cout << "Time exceeded.";
-            break;
-        default:
-            std::cout << "Response not supported.";
-        }
-        std::cout << std::endl;
-    }
-    return EXIT_SUCCESS;
-}
+#include "ping.h"
 
 int main(int argc, char* argv[])
 {
@@ -89,7 +17,6 @@ int main(int argc, char* argv[])
 
     int MAX = 255;
     int y = 0;
-    int e;
 
     std::vector<std::thread> threads;
     std::mutex ips_mutex;
@@ -129,7 +56,57 @@ int main(int argc, char* argv[])
             freeaddrinfo(res);
         }
     }
-    std::cin >> e;
+
+    std::cout << "\n";
+
+    std::cout << "Please select a device: ";
+    int selectedHost;
+    int programID;
+    int amount;
+    std::cin >> selectedHost;
+    while (std::cin.fail())
+    {
+        std::cin.clear();
+        std::cin.ignore();
+        std::cout << "Please enter a valid id/number. ";
+        std::cin >> selectedHost;
+    }
+    std::cout << "Selected: " << pWorking_ips[selectedHost] << std::endl;
+    std::cout << "\n";
+
+    std::cout << "What would you like to do with the selected host?" << std::endl;
+    std::cout << "1. Ping the selected host." << std::endl;
+    std::cout << "\n";
+
+    std::cout << "Enter the number here: ";
+    std::cin >> programID;
+    while (std::cin.fail())
+    {
+        std::cin.clear();
+        std::cin.ignore();
+        std::cout << "Please enter a valid id/number. ";
+        std::cin >> programID;
+    }
+    std::cout << "Selected option: " << programID << std::endl;
+    std::cout << "\n";
+    if (programID == 1)
+    {
+        std::cout << "How many times would you want to ping this device? ";
+        std::cin >> amount;
+        while (std::cin.fail())
+        {
+            std::cin.clear();
+            std::cin.ignore();
+            std::cout << "Please enter a valid amount." << std::endl;
+            std::cin >> amount;
+        }
+        for (int i = 0; i < amount; i++) 
+            threads.emplace_back(pingSelected, pWorking_ips[selectedHost], argc, argv);
+    
+        for (auto& t : threads)
+            t.join();
+    }
+
     return 0;
     
 }
